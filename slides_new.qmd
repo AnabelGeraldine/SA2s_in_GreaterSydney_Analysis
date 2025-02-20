@@ -1,0 +1,347 @@
+---
+title: "A Better Way to Find the Age of Abalone"
+title-slide-attributes:
+  data-background-image: team.png
+  data-background-size: contain
+  data-background-opacity: "0.3"
+  data-notes: Good afternoon everyone. Thank you for being here today. Our team, group 003EO6, has been hard at work exploring the fascinating world of abalone and determining their age. We\'re very excited to share our findings and insights with you. Let\'s start with the problem.
+subtitle: "Group 003E06"
+author: "Anabel Geraldine, Minh Trinh, Paris Wang, Yanpei Cao and Zhengxiang Sun"
+format: 
+  revealjs:
+    auto-slide: 20000
+    embed-resources: true
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+# The Problem {background-color="black" background-image="abalone_workers.avif" background-size="cover"}
+
+::: notes
+Being able to accurately determine the age of abalone is a pressing
+issue in marine biology research and sustainable management of abalone
+production. Traditional methods are invasive, labor-intensive and
+potentially harmful to the abalone population. The problem this study
+addresses is the lack of an efficient, non-intrusive method for
+estimating the age of Abalones.
+:::
+
+## The Traditional Method {background-image="traditional.png" background-size="cover"}
+
+::: notes
+The traditional method of determining an abalone's age is by cutting the
+shell through the cone, staining it, and counting the number of rings
+under a microscope. This method is so tedious and time-consuming that by
+the time the age is determined, abalones can no longer survive
+(Indumathi, 2021).
+:::
+
+## A Solution {background-color="rgba(231,248,255,255)"}
+
+![](future_abalone.png){.absolute top="50" left="200"}
+
+::: notes
+A more efficient method would be if researchers and harvesters could
+accurately predict the age of abalones based on it's physical traits.
+Our analysis aims to build a predictive model to do exactly that. This
+would transform the process of determining an abalone's age into just
+minutes of measuring it's size, determining the sex and weighing it's
+parts.
+:::
+
+## The Benefits
+::: {.fragment}
+![](speed_up.png){.absolute top=200 left=0 width="350" height="350"}
+:::
+::: {.fragment}
+![](reduce_cost.jpeg){.absolute top=0 right=0 width="450" height="400"}
+:::
+::: {.fragment}
+![](increase_accuracy.png){.absolute bottom=0 right=300 width="300" height="300"}
+:::
+
+::: notes
+Knowing the age of abalone directly affects what their value is and
+their eligibility for breeding. So it is no debate that such predictive
+capabilities would provide better production efficiency, cost reduction,
+and the provision of more precise data for abalone farming and market
+transactions, thereby significantly transforming abalone industry.
+:::
+
+## About The Data 
+
+```{r, echo=FALSE, out.width='100%', fig.width=15, fig.height=10}
+knitr::include_graphics("var.jpg")
+```
+
+
+
+## Introducing the Variables
+
+- Independent: Sex, Length, Diameter, Height, Whole Weight, Shucked weight, Viscera Weight, Shell Weight
+- Dependent: Rings 
+
+Aim to: construct a predictive model that accurately determines abalone age based on their physical attributes.
+
+![](frozenabalone.webp){.absolute bottom=0 right=400 width="300" height="200"}
+
+
+## Potential Relationship {background-color="rgba(255, 99, 71, 0.2)"}
+
+- length, diameter, and height
+- whole weight and shucked weight
+- sex and rings
+- rings and size variables
+
+![](fresh_abalone.jpg){.absolute bottom=0 right=400 width="300" height="300"}
+
+
+## Variable Used
+![](drawing.png){.absolute top="100" left="200"}
+
+
+
+## Visualization
+
+```{r,echo = FALSE,include = FALSE}
+library(tidyverse)
+library(readr)
+aba <- read.csv("abalone.data",header = FALSE)
+colnames(aba) <- c("Sex", "Length", "Diameter", "Height", "Whole_weight", "Shucked_weight", "Viscera_weight", "Shell_weight", "Rings") # create column name
+remove_outliers <- function(x) {
+  qnt <- quantile(x, probs = c(.25, .75), na.rm = TRUE)
+  H <- 1.5 * IQR(x, na.rm = TRUE)
+  x[x < (qnt[1] - H) | x > (qnt[2] + H)] <- NA
+  return(x)
+} #remove the outliers for every column
+
+
+sex <- aba$Sex
+aba_numeric <- aba[sapply(aba, is.numeric)]
+aba_clean <- lapply(aba_numeric, remove_outliers)
+aba_clean <- as.data.frame(aba_clean)
+aba_clean$Sex <- sex
+aba_clean <- na.omit(aba_clean) # remove the lines contain NA
+aba <- aba_clean %>% mutate(age = Rings + 1.5)
+```
+
+```{r,echo = FALSE}
+library(GGally)
+library(dplyr)
+
+aba %>% 
+  select(age, Length, Diameter, Height, Sex, Whole_weight) %>%
+  GGally::ggpairs(mapping = ggplot2::aes(color = Sex))
+```
+
+:::notes
+
+From scatter plots. firstly We noticed a relative high correlation between the 'Whole_weight' variable and other independent variables so we remove this. Moreover, the linear relationship between the independent variables and the dependent variable was not significant, which lead us to consider transformations.
+:::
+
+## Transformation
+```{r,echo = FALSE,include = FALSE}
+aba <- aba %>% mutate(logage = log(age),logdiameter = log(Diameter))
+```
+
+```{r,echo = FALSE,include = FALSE}
+
+aba %>% 
+  select(logage, Length, Diameter, Height, Sex) %>%
+  GGally::ggpairs(mapping = ggplot2::aes(color = Sex))
+p2 <- aba %>% 
+  select(logage, Length, logdiameter, Height, Sex) %>%
+  GGally::ggpairs(mapping = ggplot2::aes(color = Sex))
+p2
+```
+
+<div style="display: flex; justify-content: space-around;">
+  <img src="logage.png" alt="Image 1 Description" width="45%" height="450px">
+  <img src="after_transformation_page11.png" alt="Image 2 Description" width="45%" height="450px">
+</div>
+
+:::notes
+Through iterative analysis, the left graph shows improved linearity when we apply a log transformation to the dependent variable. And, from the right graph, it seems logging the 'Diameter' further enhances its linear relationship with 'logage'.We build the model separately to compare their performances.
+:::
+## Model Selection{.smaller}
+
+```{r,echo = FALSE,include = FALSE}
+# Coding for solve the first issue
+aba <- aba[, -which(names(aba) %in% c("Whole_weight"))]
+# Coding for solve the second issue
+aba <- aba %>% mutate(logage = log(age),logdiameter = log(Diameter))
+aba %>% 
+  select(logage, Sex, Length, logdiameter, Height) %>%
+  GGally::ggpairs(mapping = ggplot2::aes(color = Sex))
+M2 = lm(logage ~ Sex+Height+Diameter+Length,data =aba)
+
+# Prediction model with forward variable selection and backward selection before we remove SEXM
+M1 = lm(logage ~ logdiameter + Height + Length + Sex, data = aba)
+drop1(M1, test = "F")
+M0 = lm(logage ~ 1, data = aba) # Null model
+l_ini_for = step(M0, scope = list(lower = M0, upper = M1),
+ direction = "forward", trace = FALSE)
+
+#backward
+l_ini_back = step(M1,direction = "backward", trace = FALSE)
+aba <- filter(aba, Sex != "M" )
+
+# Final model after we remove SexM
+M1 = lm(logage ~ ., data = aba)
+M0 = lm(logage ~ 1, data = aba) # Null model
+
+l_final_for = step(M0, scope = list(lower = M0, upper = M1),
+                         direction = "forward", trace = FALSE)
+
+l_final_back = step(M1,direction = "backward", trace = FALSE)
+summary(l_ini_for)
+summary(l_ini_back)
+summary(M2)
+```
+
+
+```{r,echo = FALSE}
+sjPlot::tab_model(l_ini_for,l_ini_back,M2, show.ci = FALSE, show.aic = TRUE,
+ dv.labels = c("Forward model","Backward model","log-linear"))
+```
+
+
+
+:::notes
+We compared backward, forward, and log-linear models. Both backward and forward got the same prediction model, while log-linear differed with a higher AIC. We'll now proceed with cross-validation to determine the best model.
+:::
+
+## Model Selection{.smaller}
+
+```{r,echo = FALSE,include = FALSE}
+library(caret)
+cv_full = train(
+ logage ~ logdiameter + Height + Length + Sex, aba,
+ method = "lm",
+ trControl = trainControl(
+ method = "cv", number = 10,
+ verboseIter = FALSE
+ )
+)
+cv_full
+
+```
+
+```{r,echo = FALSE,include = FALSE}
+cv_simple = train(
+ logage ~ Diameter + Height + Length + Sex, 
+ aba,
+ method = "lm",
+ trControl = trainControl(
+ method = "cv", number = 10,
+ verboseIter = FALSE
+ )
+)
+cv_simple
+```
+
+```{r}
+
+library(knitr)
+
+data <- data.frame(
+  Method = c("Forward Model", "log-linear Model"),
+  RMSE = c(0.1521167, 0.1566072),
+  Rsquared = c(0.5577794, 0.5322651),
+  MAE = c(0.119185, 0.1221877)
+)
+
+
+kable(data, caption = "Comparison of Forward and Backward Methods", align = 'c')
+
+```
+
+
+```{r,echo = FALSE,include = FALSE}
+summary(l_ini_for)$coe
+```
+:::notes
+Lower RMSE and MAE, and higher R-squared indicate better predictions. The Forward model outperformed the log-linear, so we chose the former.
+:::
+
+
+## Assumptions
+
+![](Assumption_1.png){.absolute top="100" left="250"}
+
+::: notes
+At this stage, we check the assumptions of our model.
+For linearity, the plots indicate residuals symmetrically distributed above and below zero.
+For homoskedasticity, in the middle portion of plot, the spread might be somewhat larger than the spread on the sides of this plot, but it's not particularly concerning.
+:::
+
+## Assumptions
+
+![](Assumption_2.png){.absolute top="100" left="250"}
+
+::: notes
+For normality, we can validate using the QQ plot. Moreover, given our large sample size, we can also rely on the Central Limit Theorem to provide us with approximately valid inferences."
+:::
+
+## Multicollinearity
+
+![Heatmap](Multicollinearity.png)
+
+::: notes
+We use Heatmap to verify the Multicollinearity between variables.
+
+The overall color of each cell is dark and close to +1, which indicates a strong positive relationship between variables. The Logage's is slightly lighter, which means the correlation between logage and other variables is relatively weak. But since Logage is our predict variable, so its importance should not be underestimated.
+:::
+
+## Cross validation
+
+$$RMSE = 0.1521207$$
+$$Rsquared = 0.5553915$$
+$$MAE = 0.1192136$$
+
+::: notes
+In order to further evaluate the performance of the model, we need to use cross validation.
+
+In this model, RMSE (Root Mean Squared Error) is 0.15. Mae (Mean Absolute Error) is 0.12. the lower these two, the higher the predictive accuracy of the model. But because in this data, the range of logage is from 1.7 to 2.8, so as a percentage, these are considered a large error.
+
+R-squared represents the ratio of the variability of logage. 0.56 is relatively low since the data is physical variables.
+:::
+
+## Real Life Application
+
+![(Western Abalone Divers Association, 2020)](fisherman.jpeg)
+
+::: notes
+Here is a scenario to which the predictive model can be applied. We first introduce the non-invasive method to a small group of fishermen to test the model’s practicality and efficiency. For example, a fisherman might find that the model is not accurate in polluted water, so we can refine the prediction algorithm for it. 
+:::
+
+## Broad Implementation
+
+![(Australian Marine Conservation Society, 2023)](AMCS.png)
+
+:::notes
+The model will then be introduced to various fishing communities. After this, we will collaborate with the Australian Marine Conservation Society to produce handheld devices to enable users to follow sustainable fishing guidelines. We will also conduct regular workshops to educate fishermen on the importance of sustainable economic activity and keep them updated on the most accurate prediction model to maximise their benefits.
+:::
+
+## Reference {.scrollable}
+
+Australian Marine Conservation Society. (2023). Australian Marine Conservation Society - AMCS [Image]. In Australian Marine Conservation Society. https://www.marineconservation.org.au/
+
+Dixon, P. L., & Dixon, L. R. J. (2003). Influence of habitat on abalone growth and reproduction: implications for stock enhancement. Reviews in Fisheries Science, 11(4), 261-280)
+
+Hossain, Md.M. and Chowdhury, M.N.M. (2019) Econometric ways to estimate the age and price of abalone, Munich Personal RePEc Archive. https://mpra.ub.uni-muenchen.de/91210/ 
+
+Indumathi, H. (2021) Abalone age prediction, Medium. https://harshithaindumathi.medium.com/abalone-age-prediction-607ecda3fa3b
+
+Preece, R. C. (1988). Relationships between shell morphology, growth rate and longevity in laboratory-reared and wild caught Haliotis iris (Mollusca: Gastropoda). Journal of Experimental Marine Biology and Ecology, 116(1), 71-84. 
+
+R. N. Lea, and M. J. McConnaughey. (1989). Abalone growth and climate: Growth rates and internal shell paleo-temperature records in modern and Quaternary shells of California. Palaios, 4(4), 327-334.
+
+Shepherd, S. A., & Whitaker, D. (2005). Management implications of the relationship between abalone size and age in Haliotis rubra: can stock assessment results be used in a bioeconomic model?. ICES Journal of Marine Science, 62(5), 842-849) 
+
+Western Abalone Divers Association. (2020). Port fairy abalone divers tread water in wake of viral shockwaves [Image]. In The Citizen. https://www.thecitizen.org.au/articles/port-fairy-abalone-divers-tread-water-in-wake-of-viral-shockwaves
