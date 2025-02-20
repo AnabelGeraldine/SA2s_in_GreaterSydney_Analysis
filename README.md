@@ -1,4 +1,4 @@
-# SA2s in Greater Sydney Analysis
+# Abalone age prediction with R
 
 - Spearheaded an age prediction analysis for abalone using RStudio, from initial problem identification
 through to data understanding and exploration. Investigated potential relationships within the data, employing correlation visuals to examine interactions between various variables.
